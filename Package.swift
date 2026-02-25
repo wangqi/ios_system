@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "ios_system",
     products: [
-        .library(name: "ios_system", targets: ["ios_system", "awk", "curl_ios", "files", "shell", "ssh_cmd", "tar", "text", "mandoc", "perl", "perlA", "perlB"])
+        .library(name: "ios_system", targets: ["ios_system", "awk", "curl_ios", "files", "shell", "ssh_cmd", "tar", "text", "openssl", "libssh2"])
     ],
     dependencies: [
     ],
@@ -50,32 +50,20 @@ let package = Package(
             url: "https://github.com/holzschu/ios_system/releases/download/v3.0.4/text.xcframework.zip",
             checksum: "2450f309d0793490136a24f9af02c42fb712b327571cb44312fe330e87a156f2"
         ),
-        // Other frameworks (no auto-build, so still at .../2.7/...)
+        // Runtime dependencies required by ssh_cmd and curl_ios
         .binaryTarget(
-            name: "mandoc",
-            url: "https://github.com/holzschu/ios_system/releases/download/2.7/mandoc.xcframework.zip",
-            checksum: "02b952191ec311fe04df0001e85e8812f68473b6616eaed4a03c045aed111a43"
+            name: "openssl",
+            url: "https://github.com/holzschu/openssl-apple/releases/download/v1.1.1w/openssl-dynamic.xcframework.zip",
+            checksum: "329e8317cf9bee8e138da5d032330a7a1bd2473cf44c9c083cb2f0636abb8b80"
         ),
         .binaryTarget(
-            name: "perl",
-            url: "https://github.com/holzschu/ios_system/releases/download/2.7/perl.xcframework.zip",
-            checksum: "7f470ea838139a4aaa4dee8f3f0505c3a5d8769a54fcda9336b5d60b60abec62"
+            name: "libssh2",
+            url: "https://github.com/holzschu/libssh2-apple/releases/download/v1.11.0/libssh2-dynamic.xcframework.zip",
+            checksum: "cacfe1789b197b727119f7e32f561eaf9acc27bf38cd19975b74fce107f868a6"
         ),
-        .binaryTarget(
-            name: "perlA",
-            url: "https://github.com/holzschu/ios_system/releases/download/2.7/perlA.xcframework.zip",
-            checksum: "8015a11ab6fa15aeb16c417b229d10b28e28e756c533b7f3faf3b6029b83dc49"
-        ),
-        .binaryTarget(
-            name: "perlB",
-            url: "https://github.com/holzschu/ios_system/releases/download/2.7/perlB.xcframework.zip",
-            checksum: "fd2ca9fb3853aba1d6744c03db6cc88783d170ed0c119bd97e8ebe6fa3ec30b3"
-        ),
-        .binaryTarget(
-            name: "make",
-            url: "https://github.com/holzschu/ios_system/releases/download/2.7/make.xcframework.zip",
-            checksum: "942a05e1cd165c4fb955b274e08a1069e388ae6706770e617e47ce55927b2b2f"
-        )
+        // Note: mandoc, perl, perlA, perlB, make from release 2.7 are excluded
+        // because they only contain ios-arm64 (device-only) slices with no
+        // iOS Simulator support, which breaks simulator builds.
     ]
 )
 /* checksums computed by github action, from https://github.com/holzschu/ios_system/releases/tag/v3.0.1 
