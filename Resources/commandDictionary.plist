@@ -79,6 +79,13 @@
 		<string>2346aAbBcCdDeEfgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwxXYyz#</string>
 		<string>file</string>
 	</array>
+	<key>cut</key>
+	<array>
+		<string>text.framework/text</string>
+		<string>cut_main</string>
+		<string>b:c:d:f:sn</string>
+		<string>file</string>
+	</array>
 	<key>date</key>
 	<array>
 		<string>shell.framework/shell</string>

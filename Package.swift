@@ -45,10 +45,12 @@ let package = Package(
             url: "https://github.com/holzschu/ios_system/releases/download/v3.0.4/tar.xcframework.zip",
             checksum: "9bf482b29ea95bc643bfaa06b249394afed188e40482db055625f4928ffedc48"
         ),
+        // wangqi 2026-02-25: switched from URL binary target to local path so that
+        // our custom build (which includes cut_main) survives SPM checksum validation.
+        // Built from ios_system.xcodeproj text scheme with cut/cut.c added.
         .binaryTarget(
             name: "text",
-            url: "https://github.com/holzschu/ios_system/releases/download/v3.0.4/text.xcframework.zip",
-            checksum: "2450f309d0793490136a24f9af02c42fb712b327571cb44312fe330e87a156f2"
+            path: "prebuilt/text.xcframework"
         ),
         // Runtime dependencies required by ssh_cmd and curl_ios
         .binaryTarget(

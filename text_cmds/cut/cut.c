@@ -54,18 +54,23 @@ static const char sccsid[] = "@(#)cut.c	8.3 (Berkeley) 5/4/95";
 #include <unistd.h>
 #include <wchar.h>
 #include <sysexits.h>
+#include "ios_error.h"   // wangqi 2026-02-25: ios_system thread I/O
 
-int	bflag;
-int	cflag;
-wchar_t	dchar;
-char	dcharmb[MB_LEN_MAX + 1];
-int	dflag;
-int	fflag;
-int	nflag;
-int	sflag;
+// wangqi 2026-02-25: all globals made static to avoid duplicate-symbol conflicts
+// when linked into text.framework alongside grep.c and tail.c (which also use
+// bflag, cflag, nflag, sflag, fflag as file-scope globals).
+static int	bflag;
+static int	cflag;
+static wchar_t	dchar;
+static char	dcharmb[MB_LEN_MAX + 1];
+static int	dflag;
+static int	fflag;
+static int	nflag;
+static int	sflag;
 
-size_t	autostart, autostop, maxval;
-char *	positions;
+static size_t	autostart, autostop, maxval;
+static char *	positions;
+static size_t npos;   // wangqi 2026-02-25: moved from needpos() local static for re-entrancy
 
 int	b_cut(FILE *, const char *);
 int	b_n_cut(FILE *, const char *);
@@ -76,18 +81,26 @@ void	needpos(size_t);
 static 	void usage(void);
 
 int
-main(int argc, char *argv[])
+cut_main(int argc, char *argv[])   // wangqi 2026-02-25: renamed from main for ios_system
 {
 	FILE *fp;
 	int (*fcn)(FILE *, const char *);
 	int ch, rval;
 	size_t n;
 
+	/* Reset all globals for re-entrant in-process calls */   // wangqi 2026-02-25
+	bflag = cflag = dflag = fflag = nflag = sflag = 0;
+	autostart = autostop = maxval = 0;
+	npos = 0;          // must reset so needpos() reallocates after free
+	free(positions);
+	positions = NULL;
+	dchar = '\t';
+	strcpy(dcharmb, "\t");
+	optreset = 1; optind = 1; opterr = 1;
+
 	setlocale(LC_ALL, "");
 
 	fcn = NULL;
-	dchar = '\t';			/* default delimiter is \t */
-	strcpy(dcharmb, "\t");
 
 	while ((ch = getopt(argc, argv, "b:c:d:f:sn")) != -1)
 		switch(ch) {
@@ -142,8 +155,8 @@ main(int argc, char *argv[])
 	if (*argv)
 		for (; *argv; ++argv) {
 			if (strcmp(*argv, "-") == 0) {
-				rval |= fcn(stdin, "stdin");
-				if (ferror(stdin)) {
+				rval |= fcn(thread_stdin, "stdin");
+				if (ferror(thread_stdin)) {
 					errx(EX_IOERR, "Error reading stdin");
 				}
 			} else {
@@ -160,8 +173,8 @@ main(int argc, char *argv[])
 			}
 		}
 	else
-		rval = fcn(stdin, "stdin");
-	exit(rval);
+		rval = fcn(thread_stdin, "stdin");
+	return rval;       // wangqi 2026-02-25: was exit(rval)
 }
 
 void
@@ -222,7 +235,7 @@ get_list(char *list)
 void
 needpos(size_t n)
 {
-	static size_t npos;
+	// wangqi 2026-02-25: npos promoted to file scope for re-entrancy (was local static)
 	size_t oldnpos;
 
 	/* Grow the positions array to at least the specified size. */
@@ -253,16 +266,16 @@ b_cut(FILE *fp, const char *fname /* __unused */)
 			if (ch == '\n')
 				break;
 			if (*pos++)
-				(void)putchar(ch);
+				(void)putc(ch, thread_stdout);
 		}
 		if (ch != '\n') {
 			if (autostop)
 				while ((ch = getc(fp)) != EOF && ch != '\n')
-					(void)putchar(ch);
+					(void)putc(ch, thread_stdout);
 			else
 				while ((ch = getc(fp)) != EOF && ch != '\n');
 		}
-		(void)putchar('\n');
+		(void)putc('\n', thread_stdout);
 	}
 	return (0);
 }
@@ -309,7 +322,7 @@ b_n_cut(FILE *fp, const char *fname)
 				for (; i < col + clen && i < maxval; i++)
 					canwrite &= positions[1 + i];
 				if (canwrite)
-					fwrite(lbuf, 1, clen, stdout);
+					fwrite(lbuf, 1, clen, thread_stdout);
 			} else {
 				/*
 				 * Print the character if all of it has
@@ -323,13 +336,13 @@ b_n_cut(FILE *fp, const char *fname)
 						break;
 					}
 				if (canwrite)
-					fwrite(lbuf, 1, clen, stdout);
+					fwrite(lbuf, 1, clen, thread_stdout);
 			}
 			lbuf += clen;
 			lbuflen -= clen;
 		}
 		if (lbuflen > 0)
-			putchar('\n');
+			putc('\n', thread_stdout);
 	}
 	return (warned);
 }
@@ -350,16 +363,16 @@ c_cut(FILE *fp, const char *fname)
 			if (ch == '\n')
 				break;
 			if (*pos++)
-				(void)putwchar(ch);
+				(void)fputwc(ch, thread_stdout);
 		}
 		if (ch != '\n') {
 			if (autostop)
 				while ((ch = getwc(fp)) != WEOF && ch != '\n')
-					(void)putwchar(ch);
+					(void)fputwc(ch, thread_stdout);
 			else
 				while ((ch = getwc(fp)) != WEOF && ch != '\n');
 		}
-		(void)putwchar('\n');
+		(void)fputwc('\n', thread_stdout);
 	}
 out:
 	if (ferror(fp)) {
@@ -413,7 +426,7 @@ f_cut(FILE *fp, const char *fname)
 				isdelim = 1;
 			if (ch == '\n') {
 				if (!isdelim && !sflag)
-					(void)fwrite(lbuf, lbuflen, 1, stdout);
+					(void)fwrite(lbuf, lbuflen, 1, thread_stdout);
 				break;
 			}
 		}
@@ -424,7 +437,7 @@ f_cut(FILE *fp, const char *fname)
 		for (field = maxval, p = lbuf; field; --field, ++pos) {
 			if (*pos && output++)
 				for (i = 0; dcharmb[i] != '\0'; i++)
-					putchar(dcharmb[i]);
+					putc(dcharmb[i], thread_stdout);
 			for (;;) {
 				clen = mbrtowc(&ch, p, lbuf + reallen - p,
 				    NULL);
@@ -444,7 +457,7 @@ f_cut(FILE *fp, const char *fname)
 					break;
 				if (*pos)
 					for (i = 0; i < (int)clen; i++)
-						putchar(p[i - clen]);
+						putc(p[i - clen], thread_stdout);
 			}
 			if (ch == '\n')
 				break;
@@ -453,13 +466,13 @@ f_cut(FILE *fp, const char *fname)
 			if (autostop) {
 				if (output)
 					for (i = 0; dcharmb[i] != '\0'; i++)
-						putchar(dcharmb[i]);
+						putc(dcharmb[i], thread_stdout);
 				for (; (ch = *p) != '\n'; ++p)
-					(void)putchar(ch);
+					(void)putc(ch, thread_stdout);
 			} else
 				for (; (ch = *p) != '\n'; ++p);
 		}
-		(void)putchar('\n');
+		(void)putc('\n', thread_stdout);
 	}
 	free(mlbuf);
 	return (0);
@@ -468,7 +481,7 @@ f_cut(FILE *fp, const char *fname)
 static void
 usage(void)
 {
-	(void)fprintf(stderr, "%s\n%s\n%s\n",
+	(void)fprintf(thread_stderr, "%s\n%s\n%s\n",
 		"usage: cut -b list [-n] [file ...]",
 		"       cut -c list [file ...]",
 		"       cut -f list [-s] [-d delim] [file ...]");
