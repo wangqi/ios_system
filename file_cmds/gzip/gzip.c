@@ -342,7 +342,10 @@ gzip_main(int argc, char **argv)
 #ifndef SMALL
 	if ((gzip = getenv("GZIP")) != NULL)
 		prepend_gzip(gzip, &argc, &argv);
-	signal(SIGINT, sigint_handler);
+	/* wangqi 2026-02-27: signal(SIGINT, sigint_handler) is intercepted by ios_system's
+	 * ios_signal() -> canSetSignal() -> EXC_BAD_ACCESS (code=1, address=0x0) in-process.
+	 * Same root cause as curl HAVE_SIGNAL crash. Disable signal registration for iOS. */
+	/* signal(SIGINT, sigint_handler); */
 #endif
 
 	/*

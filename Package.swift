@@ -30,10 +30,14 @@ let package = Package(
             name: "curl_ios",
             path: "prebuilt/curl_ios.xcframework"
         ),
+        // wangqi 2026-02-27: switched from URL binary target to local path so that
+        // our custom build (which disables signal(SIGINT,...)) survives SPM checksum validation.
+        // signal(SIGINT, sigint_handler) in file_cmds/gzip/gzip.c was intercepted by
+        // ios_system's ios_signal() -> canSetSignal() -> EXC_BAD_ACCESS (code=1, address=0x0).
+        // Same root cause as curl HAVE_SIGNAL crash. Call commented out in gzip.c.
         .binaryTarget(
             name: "files",
-            url: "https://github.com/holzschu/ios_system/releases/download/v3.0.4/files.xcframework.zip",
-            checksum: "02d6522f5e1adc3b472f7aaa53910f049e6c5829e07c7e3005cf2a0d5f9f423a"
+            path: "prebuilt/files.xcframework"
         ),
         .binaryTarget(
             name: "shell",
