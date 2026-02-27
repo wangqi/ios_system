@@ -559,7 +559,8 @@
 #define HAVE_SIGINTERRUPT 1
 
 /* Define to 1 if you have the signal function. */
-#define HAVE_SIGNAL 1
+/* wangqi 2026-02-27: disabled — signal() intercepted by ios_system causes EXC_BAD_ACCESS in canSetSignal() */
+/* #define HAVE_SIGNAL 1 */
 
 /* Define to 1 if you have the <signal.h> header file. */
 #define HAVE_SIGNAL_H 1

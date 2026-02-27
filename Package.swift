@@ -20,10 +20,15 @@ let package = Package(
             url: "https://github.com/holzschu/ios_system/releases/download/v3.0.4/awk.xcframework.zip",
             checksum: "6898b01913261eee194edcb464212d4af6bc33355b1e286bbbd17f3f878c1706"
         ),
+        // wangqi 2026-02-27: switched from URL binary target to local path so that
+        // our custom build (which disables HAVE_SIGNAL) survives SPM checksum validation.
+        // HAVE_SIGNAL disabled in curl/curl/lib/curl_config.h — the signal() call in
+        // curl_main() (tool_main.c:294) was intercepted by ios_system's ios_signal(),
+        // causing EXC_BAD_ACCESS (code=1, address=0x0) in canSetSignal(). Removing
+        // the signal() call fixes the crash without affecting curl's HTTP functionality.
         .binaryTarget(
             name: "curl_ios",
-            url: "https://github.com/holzschu/ios_system/releases/download/v3.0.4/curl_ios.xcframework.zip",
-            checksum: "2a0020ce4904ea71e83c8daa86e99515b322981abc8ab2092b700661bcc880cd"
+            path: "prebuilt/curl_ios.xcframework"
         ),
         .binaryTarget(
             name: "files",
