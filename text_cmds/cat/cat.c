@@ -235,7 +235,16 @@ cook_cat(FILE *fp)
 		clearerr(fp);
 	}
     if (ferror(thread_stdout)) {
-		err(1, "stdout");
+        // wangqi 2026-02-27: replaced err(1, "stdout") with exit(1).
+        // err() is a pre-compiled libc function that calls the REAL exit(), which
+        // terminates the entire iOS app process. This crash was triggered when cat
+        // is used with flags (-n, -b, etc.) in a pipe where the reader exits early
+        // (e.g. "cat -n file.txt | head -5"): head exits, its stdin closes, cat
+        // gets EPIPE on the next write, ferror(thread_stdout) becomes true, and
+        // err(1,"stdout") kills the whole app. Using exit(1) instead routes through
+        // #define exit ios_exit in ios_error.h, which calls pthread_exit(NULL) —
+        // the correct in-process thread exit for ios_system commands.
+        exit(1);
     }
 }
 
@@ -254,7 +263,11 @@ raw_cat(int rfd)
 			// err(1, "%s", filename);
         bsize = 1024; // MAX(sbuf.st_blksize, 1024);
         if ((buf = malloc(bsize)) == NULL) {
-            err(1, "buffer");
+            // wangqi 2026-02-27: replaced err(1, "buffer") with exit(1).
+            // Same reason as err(1, "stdout") above — err() calls the real libc
+            // exit() which terminates the entire app. exit(1) here maps to ios_exit(1)
+            // via #define in ios_error.h for safe in-process thread exit.
+            exit(1);
         }
 	}
 	while ((nr = read(rfd, buf, bsize)) > 0)
